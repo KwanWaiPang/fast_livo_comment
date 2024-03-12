@@ -20,7 +20,7 @@ namespace lidar_selection {
 class LidarSelector {
   public:
     int grid_size;
-    vk::AbstractCamera* cam;
+    vk::AbstractCamera* cam;//相机模型
     SparseMap* sparse_map;
     StatesGroup* state;
     StatesGroup* state_propagat;
@@ -127,7 +127,7 @@ class LidarSelector {
 
     cv::Mat img_cp, img_rgb;
     std::vector<FramePtr> overlap_kfs_;
-    FramePtr new_frame_;
+    FramePtr new_frame_;//当前帧
     FramePtr last_kf_;
     Map map_;
     enum Stage {

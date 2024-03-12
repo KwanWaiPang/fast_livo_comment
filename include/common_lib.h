@@ -146,7 +146,7 @@ namespace std
   };
 }
 
-struct MeasureGroup     
+struct MeasureGroup   //跟immesh一模一样  
 {
     double img_offset_time;
     deque<sensor_msgs::Imu::ConstPtr> imu;
@@ -162,7 +162,7 @@ struct LidarMeasureGroup
     double lidar_beg_time;
     double last_update_time;
     PointCloudXYZI::Ptr lidar;
-    std::deque<struct MeasureGroup> measures;
+    std::deque<struct MeasureGroup> measures;//里面包含了imu以及image数据
     bool is_lidar_end;
     int lidar_scan_index_now;
     LidarMeasureGroup()

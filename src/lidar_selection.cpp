@@ -1022,26 +1022,33 @@ void LidarSelector::display_keypatch(double time)
 
 V3F LidarSelector::getpixel(cv::Mat img, V2D pc) 
 {
+    //获相机坐标系下的坐标
     const float u_ref = pc[0];
     const float v_ref = pc[1];
+    //获得整数部分
     const int u_ref_i = floorf(pc[0]); 
     const int v_ref_i = floorf(pc[1]);
+    //获得小数部分
     const float subpix_u_ref = (u_ref-u_ref_i);
     const float subpix_v_ref = (v_ref-v_ref_i);
+    // 计算四个相邻像素的权重，用于进行双线性插值。
     const float w_ref_tl = (1.0-subpix_u_ref) * (1.0-subpix_v_ref);
     const float w_ref_tr = subpix_u_ref * (1.0-subpix_v_ref);
     const float w_ref_bl = (1.0-subpix_u_ref) * subpix_v_ref;
     const float w_ref_br = subpix_u_ref * subpix_v_ref;
     uint8_t* img_ptr = (uint8_t*) img.data + ((v_ref_i)*width + (u_ref_i))*3;
+    // 计算双线性插值后的像素值，分别对应图像中的蓝色通道、绿色通道和红色通道。
     float B = w_ref_tl*img_ptr[0] + w_ref_tr*img_ptr[0+3] + w_ref_bl*img_ptr[width*3] + w_ref_br*img_ptr[width*3+0+3];
     float G = w_ref_tl*img_ptr[1] + w_ref_tr*img_ptr[1+3] + w_ref_bl*img_ptr[1+width*3] + w_ref_br*img_ptr[width*3+1+3];
     float R = w_ref_tl*img_ptr[2] + w_ref_tr*img_ptr[2+3] + w_ref_bl*img_ptr[2+width*3] + w_ref_br*img_ptr[width*3+2+3];
+    // 创建一个 V3F 类型的颜色向量，并将插值后的像素值作为其构造函数的参数。
     V3F pixel(B,G,R);
     return pixel;
 }
 
 void LidarSelector::detect(cv::Mat img, PointCloudXYZI::Ptr pg) 
 {
+    //先确定一下图像的size
     if(width!=img.cols || height!=img.rows)
     {
         std::cout<<"Resize the img scale !!!"<<std::endl;
@@ -1050,9 +1057,10 @@ void LidarSelector::detect(cv::Mat img, PointCloudXYZI::Ptr pg)
     }
     img_rgb = img.clone();
     img_cp = img.clone();
-    cv::cvtColor(img,img,CV_BGR2GRAY);
+    cv::cvtColor(img,img,CV_BGR2GRAY);//转换成灰度图
 
-    new_frame_.reset(new Frame(cam, img.clone()));
+    new_frame_.reset(new Frame(cam, img.clone()));//根据相机的模型以及相机来初始化一个新的帧
+    //根据系统状态state（也就是pose）来更新帧的信息（其实就是获取相应的pose变换）
     updateFrameState(*state);
 
     if(stage_ == STAGE_FIRST_FRAME && pg->size()>10)

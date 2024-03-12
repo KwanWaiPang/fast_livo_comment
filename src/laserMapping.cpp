@@ -538,7 +538,7 @@ bool sync_packages(LidarMeasureGroup &meas)
             if (img_buffer.size()>0) // temp method, ignore img topic when no lidar points, keep sync
             {
                 lidar_buffer.pop_front();
-                img_buffer.pop_front();
+                img_buffer.pop_front();//将图像数据删掉，以保证图像和激光数据的同步
             }
             mtx_buffer.unlock();
             sig_buffer.notify_all();
@@ -551,7 +551,9 @@ bool sync_packages(LidarMeasureGroup &meas)
         lidar_pushed = true; // flag
     }
 
-    if (img_buffer.empty()) { // no img topic, means only has lidar topic
+    //如果图像数据是空的
+    if (img_buffer.empty()) 
+    { // no img topic, means only has lidar topic
         if (last_timestamp_imu < lidar_end_time+0.02) { // imu message needs to be larger than lidar_end_time, keep complete propagate.
             // ROS_ERROR("out sync");
             return false;
@@ -576,6 +578,8 @@ bool sync_packages(LidarMeasureGroup &meas)
         // ROS_ERROR("out sync");
         return true;
     }
+
+    //下面开始处理图像数据不为空的情况
     struct MeasureGroup m;
     // cout<<"lidar_buffer.size(): "<<lidar_buffer.size()<<" img_buffer.size(): "<<img_buffer.size()<<endl;
     // cout<<"time_buffer.size(): "<<time_buffer.size()<<" img_time_buffer.size(): "<<img_time_buffer.size()<<endl;
@@ -590,6 +594,7 @@ bool sync_packages(LidarMeasureGroup &meas)
         double imu_time = imu_buffer.front()->header.stamp.toSec();
         m.imu.clear();
         mtx_buffer.lock();
+        //获取imu数据
         while ((!imu_buffer.empty() && (imu_time<lidar_end_time))) 
         {
             imu_time = imu_buffer.front()->header.stamp.toSec();
@@ -605,7 +610,7 @@ bool sync_packages(LidarMeasureGroup &meas)
         meas.is_lidar_end = true;
         meas.measures.push_back(m);
     }
-    else 
+    else //如果图像数据的时间戳小于激光数据的时间戳
     {
         double img_start_time = img_time_buffer.front(); // process img topic, record timestamp
         if (last_timestamp_imu < img_start_time) 
@@ -615,8 +620,9 @@ bool sync_packages(LidarMeasureGroup &meas)
         }
         double imu_time = imu_buffer.front()->header.stamp.toSec();
         m.imu.clear();
+        //获取图像相对于激光的时间戳
         m.img_offset_time = img_start_time - meas.lidar_beg_time; // record img offset time, it shoule be the Kalman update timestamp.
-        m.img = img_buffer.front();
+        m.img = img_buffer.front();//获取图像数据
         mtx_buffer.lock();
         while ((!imu_buffer.empty() && (imu_time<img_start_time))) 
         {
@@ -727,13 +733,15 @@ void publish_frame_world_rgb(const ros::Publisher & pubLaserCloudFullRes, lidar_
             pointRGB.x =  pcl_wait_pub->points[i].x;
             pointRGB.y =  pcl_wait_pub->points[i].y;
             pointRGB.z =  pcl_wait_pub->points[i].z;
+            //点云在世界坐标系的坐标
             V3D p_w(pcl_wait_pub->points[i].x, pcl_wait_pub->points[i].y, pcl_wait_pub->points[i].z);
+            //点云在相机坐标系的坐标
             V2D pc(lidar_selector->new_frame_->w2c(p_w));
-            if (lidar_selector->new_frame_->cam_->isInFrame(pc.cast<int>(),0))
+            if (lidar_selector->new_frame_->cam_->isInFrame(pc.cast<int>(),0))//检查点是否在图像中（是否在边界内）
             {
                 // cv::Mat img_cur = lidar_selector->new_frame_->img();
-                cv::Mat img_rgb = lidar_selector->img_rgb;
-                V3F pixel = lidar_selector->getpixel(img_rgb, pc);
+                cv::Mat img_rgb = lidar_selector->img_rgb;//获取当前这组lidar数据对应的图像
+                V3F pixel = lidar_selector->getpixel(img_rgb, pc);//根据点在相机坐标系的坐标，获取像素值
                 pointRGB.r = pixel[2];
                 pointRGB.g = pixel[1];
                 pointRGB.b = pixel[0];
@@ -1125,6 +1133,7 @@ void readParameters(ros::NodeHandle &nh)
     nh.param<double>("ncc_thre", ncc_thre, 100);
 }
 
+//主函数
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "laserMapping");
@@ -1138,12 +1147,12 @@ int main(int argc, char** argv)
         nh.subscribe(lid_topic, 200000, livox_pcl_cbk) : \
         nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
     ros::Subscriber sub_imu = nh.subscribe(imu_topic, 200000, imu_cbk);
-    ros::Subscriber sub_img = nh.subscribe(img_topic, 200000, img_cbk);//回调image
+    ros::Subscriber sub_img = nh.subscribe(img_topic, 200000, img_cbk);//回调image(并将数据放于img_buffer以 img_time_buffer中)
     image_transport::Publisher img_pub = it.advertise("/rgb_img", 1);
     ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_registered", 100);
     ros::Publisher pubLaserCloudFullResRgb = nh.advertise<sensor_msgs::PointCloud2>
-            ("/cloud_registered_rgb", 100);
+            ("/cloud_registered_rgb", 100);//发布彩色点云
     ros::Publisher pubVisualCloud = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_visual_map", 100);
     ros::Publisher pubSubVisualCloud = nh.advertise<sensor_msgs::PointCloud2>
@@ -1188,7 +1197,7 @@ int main(int argc, char** argv)
         ikdforest.Set_downsample_param(filter_size_map_min);    
     #endif
 
-    shared_ptr<ImuProcess> p_imu(new ImuProcess());
+    shared_ptr<ImuProcess> p_imu(new ImuProcess());//创建一个ImuProcess对象（进行imu预积分处理）
     // p_imu->set_extrinsic(V3D(0.04165, 0.02326, -0.0284));   //avia
     // p_imu->set_extrinsic(V3D(0.05512, 0.02226, -0.0297));   //horizon
     V3D extT;
@@ -1199,6 +1208,7 @@ int main(int argc, char** argv)
     lidar_selection::LidarSelectorPtr lidar_selector(new lidar_selection::LidarSelector(grid_size, new SparseMap));
     if(!vk::camera_loader::loadFromRosNs("laserMapping", lidar_selector->cam))
         throw std::runtime_error("Camera model not correctly specified.");
+    // 基于lidar_selector设置一系列的参数
     lidar_selector->MIN_IMG_COUNT = MIN_IMG_COUNT;
     lidar_selector->debug = debug;
     lidar_selector->patch_size = patch_size;
@@ -1261,7 +1271,7 @@ int main(int argc, char** argv)
     {
         if (flg_exit) break;
         ros::spinOnce();
-        if(!sync_packages(LidarMeasures))//同步一下数据
+        if(!sync_packages(LidarMeasures))//同步一下数据（应该包含了lidar、image以及imu）
         {
             status = ros::ok();
             cv::waitKey(1);
@@ -1288,7 +1298,7 @@ int main(int argc, char** argv)
         state_point = kf.get_x();
         pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
         #else
-        p_imu->Process2(LidarMeasures, state, feats_undistort); 
+        p_imu->Process2(LidarMeasures, state, feats_undistort); //对lidar点进行去失真处理，没有进行img相关的处理
         state_propagat = state;
         #endif
 
@@ -1297,6 +1307,7 @@ int main(int argc, char** argv)
             LidarMeasures.debug_show();
         }
 
+        //如果没有lidar点
         if (feats_undistort->empty() || (feats_undistort == nullptr))
         {
             cout<<" No point!!!"<<endl;
@@ -1325,7 +1336,7 @@ int main(int argc, char** argv)
                 continue;
             }
             // cout<<"cur state:"<<state.rot_end<<endl;
-            if (img_en) {
+            if (img_en) {//如果有图像
                 euler_cur = RotMtoEuler(state.rot_end);
                 fout_pre << setw(20) << LidarMeasures.last_update_time - first_lidar_time << " " << euler_cur.transpose()*57.3 << " " << state.pos_end.transpose() << " " << state.vel_end.transpose() \
                                 <<" "<<state.bias_g.transpose()<<" "<<state.bias_a.transpose()<<" "<<state.gravity.transpose()<< endl;
@@ -1341,7 +1352,8 @@ int main(int argc, char** argv)
                 //     pointBodyToWorld(&feats_undistort->points[i], \
                 //                         &laserCloudWorld->points[i]);
                 // }
-
+                
+                //读入image到lidar_selector中
                 lidar_selector->detect(LidarMeasures.measures.back().img, pcl_wait_pub);
                 // int size = lidar_selector->map_cur_frame_.size();
                 int size_sub = lidar_selector->sub_map_cur_frame_.size();
@@ -1375,7 +1387,8 @@ int main(int argc, char** argv)
                 out_msg.encoding = sensor_msgs::image_encodings::BGR8;
                 out_msg.image = img_rgb;
                 img_pub.publish(out_msg.toImageMsg());
-
+                
+                //将彩色点云发布
                 publish_frame_world_rgb(pubLaserCloudFullResRgb, lidar_selector);
                 publish_visual_world_sub_map(pubSubVisualCloud);
                 
