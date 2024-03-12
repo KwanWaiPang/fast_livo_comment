@@ -1,0 +1,48 @@
+feature_extract_enable : 0
+point_filter_num : 1
+max_iteration : 10
+dense_map_enable : 1
+filter_size_surf : 0.15
+filter_size_map : 0.3
+cube_side_length : 20
+debug : 0
+grid_size : 40
+patch_size : 8
+img_enable : 1
+lidar_enable : 1
+outlier_threshold : 300 # 78 100 156
+ncc_en: false
+ncc_thre: 0
+img_point_cov : 100 # 1000
+laser_point_cov : 0.001 # 0.001
+cam_fx: 1068.42870237679
+cam_fy: 1064.36748532345
+cam_cx: 953.624929519216
+cam_cy: 607.201198303378
+
+common:
+    lid_topic:  "/velodyne_points"
+    imu_topic:  "/imu/data"
+
+preprocess:
+    lidar_type: 2 #1 # Livox Avia LiDAR
+    scan_line: 32 #6
+    blind: 4 #5 # blind x m disable
+
+mapping:
+    acc_cov_scale: 100
+    gyr_cov_scale: 10000
+    fov_degree:    180 #90
+    extrinsic_T: [0.0, 0.0, 0]  
+    extrinsic_R: [ 1, 0, 0,
+                   0, 1, 0,
+                   0, 0, 1]
+
+camera:
+    img_topic: /camera_left/image_color
+    #camera2lidar
+    Rcl: [0.99987597, 0.01201981, -0.014711,
+         -0.01005207,-0.01043868, 1.07743035,
+          0.01212479,-0.99987327,-0.024111544]
+    Pcl: [-0.088887, 0.276912, -0.0492678]
+    
