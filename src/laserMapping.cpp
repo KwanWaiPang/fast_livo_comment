@@ -527,7 +527,7 @@ bool sync_packages(LidarMeasureGroup &meas)
     }
     
     if (!lidar_pushed) { // If not in lidar scan, need to generate new meas
-        if (lidar_buffer.empty()) {
+        if (lidar_buffer.empty()) {//多余的，前面已经check过lidar不为空了
             // ROS_ERROR("out sync");
             return false;
         }
