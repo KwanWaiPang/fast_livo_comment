@@ -1389,7 +1389,7 @@ int main(int argc, char** argv)
                 img_pub.publish(out_msg.toImageMsg());
                 
                 //将彩色点云发布
-                publish_frame_world_rgb(pubLaserCloudFullResRgb, lidar_selector);
+                publish_frame_world_rgb(pubLaserCloudFullResRgb, lidar_selector);//发布彩色点云
                 publish_visual_world_sub_map(pubSubVisualCloud);
                 
                 // *map_cur_frame_point = *pcl_wait_pub;
